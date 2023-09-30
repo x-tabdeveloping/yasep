@@ -114,3 +114,9 @@ class Pipeline:
         in_dir = snapshot_download(repo_id=repo_id)
         res = cls.from_disk(in_dir)
         return res
+
+    def __repr__(self) -> str:
+        return self.config.to_str()
+
+    def __str__(self) -> str:
+        return self.__repr__()
