@@ -196,7 +196,11 @@ class Word2Vec(Model):
     def train_from_iterable(self, docs: Iterable[Document]) -> "Word2Vec":
         ids = docs_to_ids(docs)
         self.model.build_vocab(ids)
-        self.model.train(ids)
+        self.model.train(
+            ids,
+            total_examples=self.model.corpus_count,
+            epochs=self.model.epochs,
+        )
         self.wv = self.model.wv
         return self
 
