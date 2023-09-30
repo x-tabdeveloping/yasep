@@ -42,12 +42,20 @@ class Pipeline:
         self.model.train_from_iterable(docs)
         return self
 
-    def encode(
+    def encode(self, text: str, agg: Callable = np.nanmean) -> np.ndarray:
+        if not isinstance(text, str):
+            raise TypeError(
+                "text is not type str. Did you mean to call encode_batch?"
+            )
+        doc = self.__call__(text)
+        return agg(doc.vectors, axis=0)
+
+    def encode_batch(
         self, texts: Iterable[str], agg: Callable = np.nanmean
     ) -> np.ndarray:
         embeddings = []
-        for doc in self.pipe(texts):
-            embeddings.append(agg(doc.vectors, axis=0))
+        for text in texts:
+            embeddings.append(self.encode(text, agg))
         return np.stack(embeddings)
 
     @property
