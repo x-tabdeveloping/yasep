@@ -10,7 +10,7 @@ from huggingface_hub import HfApi, snapshot_download
 from yasep.doc import Document
 from yasep.exceptions import NotFittedError
 from yasep.hub import DEFAULT_README
-from yasep.models import Model
+from yasep.models.model import Model
 from yasep.tokenizers import Tokenizer
 from yasep.utils import reusable
 
