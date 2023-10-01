@@ -7,7 +7,6 @@ import numpy as np
 @dataclass
 class Token:
     index: int
-    id: str
     offset: tuple[int, int]
     doc: "Document"
 
@@ -22,6 +21,10 @@ class Token:
             raise TypeError("No vectors have been assigned yet.")
         return self.doc.vectors[self.index]
 
+    @property
+    def id(self) -> int:
+        return self.doc.ids[self.index]
+
     def __repr__(self) -> str:
         return f"Token({self.id}: '{self.orth}')"
 
@@ -33,6 +36,7 @@ class Token:
 class Document:
     text: str
     tokens: list[Token]
+    ids: np.ndarray
     vectors: Optional[np.ndarray] = None
 
     def __repr__(self) -> str:

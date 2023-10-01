@@ -7,8 +7,12 @@ from tokenizers import Tokenizer as HFTokenizer
 from tokenizers.models import BPE, Unigram, WordLevel, WordPiece
 from tokenizers.normalizers import BertNormalizer
 from tokenizers.pre_tokenizers import ByteLevel, Whitespace
-from tokenizers.trainers import (BpeTrainer, UnigramTrainer, WordLevelTrainer,
-                                 WordPieceTrainer)
+from tokenizers.trainers import (
+    BpeTrainer,
+    UnigramTrainer,
+    WordLevelTrainer,
+    WordPieceTrainer,
+)
 
 from yasep.doc import Document, Token
 from yasep.utils import reusable
@@ -38,11 +42,9 @@ def bytes_to_tok(data: bytes) -> HFTokenizer:
 class Tokenizer(ABC):
     def __call__(self, text: str) -> Document:
         encoding = self.model.encode(text)
-        doc = Document(text, [])
-        for index, (id, offset) in enumerate(
-            zip(encoding.ids, encoding.offsets)
-        ):
-            token = Token(index, str(id), offset, doc)
+        doc = Document(text, [], encoding.ids)
+        for index, offset in enumerate(encoding.offsets):
+            token = Token(index, offset, doc)
             doc.tokens.append(token)
         return doc
 

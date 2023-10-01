@@ -1,5 +1,6 @@
 from typing import Iterable, Literal
 
+import numpy as np
 from confection import registry
 from gensim.models import Word2Vec
 
@@ -11,7 +12,20 @@ from yasep.utils import reusable
 @reusable
 def docs_to_ids(docs: Iterable[Document]) -> Iterable[list[str]]:
     for doc in docs:
-        yield [token.id for token in doc.tokens]
+        yield [str(token.id) for token in doc.tokens]
+
+
+def kv_to_array(kv) -> np.ndarray:
+    vocab = list(map(int, kv.index_to_key))
+    max_token = max(vocab)
+    unk_vector = kv.get_mean_vector(kv.index_to_key[:100])
+    vector_size = kv.vector_size
+    embeddings = np.copy(
+        np.broadcast_to(unk_vector, (max_token + 1, vector_size))
+    )
+    for key in kv.index_to_key:
+        embeddings[int(key)] = kv[key]
+    return embeddings
 
 
 @registry.models.register("skip_gram.v1")
@@ -112,5 +126,5 @@ class SkipGram(Model):
             total_examples=self.model.corpus_count,
             epochs=self.model.epochs,
         )
-        self.wv = self.model.wv
+        self.embeddings = kv_to_array(self.model.wv)
         return self

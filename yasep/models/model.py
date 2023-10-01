@@ -2,6 +2,7 @@ import tempfile
 from typing import Iterable, Optional
 
 import numpy as np
+import safetensors.numpy
 from confection import Config, registry
 from gensim.models import KeyedVectors
 
@@ -18,21 +19,14 @@ def make_static():
 class Model:
     name = "static_model.v1"
 
-    def __init__(self, wv: Optional[KeyedVectors] = None):
-        self.wv = wv
+    def __init__(self, embeddings: Optional[np.ndarray] = None):
+        self.embeddings = embeddings
         self.params = dict()
 
     def __call__(self, doc: Document):
-        if self.wv is None:
+        if self.embeddings is None:
             raise NotFittedError("Model has not been fitted yet.")
-        n_toks = len(doc.tokens)
-        vec_size = self.wv.vector_size
-        vectors = np.empty((n_toks, vec_size))
-        for token in doc.tokens:
-            try:
-                vectors[token.index] = self.wv[token.id]
-            except KeyError:
-                vectors[token.index] = np.full(vec_size, np.nan)
+        vectors = np.take(self.embeddings, doc.ids, axis=0)
         doc.vectors = vectors
         return doc
 
@@ -61,25 +55,20 @@ class Model:
         return resolved["tokenizer"]
 
     def to_bytes(self) -> bytes:
-        if self.wv is None:
+        if self.embeddings is None:
             raise NotFittedError(
                 "Can't save model if it hasn't been fitted yet."
             )
-        with tempfile.NamedTemporaryFile(prefix="model_") as tmp:
-            temporary_filepath = tmp.name
-            self.wv.save(temporary_filepath)
-            with open(temporary_filepath, "rb") as temp_buffer:
-                return temp_buffer.read()
+        return safetensors.numpy.save({"embeddings": self.embeddings})
 
     def from_bytes(self, data: bytes):
-        with tempfile.NamedTemporaryFile(prefix="model_") as tmp:
-            tmp.write(data)
-            self.wv = KeyedVectors.load(tmp.name)
+        tensor_dict = safetensors.numpy.load(data)
+        self.embeddings = tensor_dict["embeddings"]
         return self
 
     @property
     def fitted(self):
-        return self.wv is not None
+        return self.embeddings is not None
 
     def train_from_iterable(self, texts: Iterable[Document]) -> "Model":
         return self
