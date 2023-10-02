@@ -1,7 +1,9 @@
-from typing import Callable, Iterable, Optional, Union
+from typing import Iterable, Optional, Union
 
+import jax
+import jax.numpy as jnp
 import numpy as np
-import safetensors.numpy
+import safetensors.flax
 from confection import Config, registry
 
 from yasep.doc import Document
@@ -14,34 +16,44 @@ def make_static():
     return Model()
 
 
-ArraySequence = Union[np.ndarray, list[np.ndarray]]
+Array = Union[jax.Array, np.ndarray]
+ArraySequence = Union[Array, list[np.ndarray]]
 
 
 class Model:
     name = "static_model.v1"
 
-    def __init__(self, embeddings: Optional[np.ndarray] = None):
+    def __init__(self, embeddings: Optional[Array] = None):
         self.embeddings = embeddings
         self.params = dict()
 
-    def __call__(self, doc: Document):
+    def apply(self, embeddings: Array, ids: Array, attention_mask: Array):
+        vectors = jnp.take(embeddings, ids, axis=0)
+        masked = jnp.transpose(
+            (jnp.transpose(vectors, (2, 0, 1)) * attention_mask), (1, 2, 0)
+        )
+        summed = jnp.sum(masked, axis=1)
+        n_nonmask = jnp.sum(masked, axis=1)
+        return summed / n_nonmask
+
+    def __call__(self, doc: Document) -> Document:
         if self.embeddings is None:
             raise NotFittedError("Model has not been fitted yet.")
-        vectors = np.take(self.embeddings, doc.ids, axis=0)
+        vectors = jnp.take(self.embeddings, doc.ids, axis=0)
         doc.vectors = vectors
         return doc
 
     def encode(
         self,
-        ids: np.ndarray,
-        attention_mask: np.ndarray,
-    ) -> np.ndarray:
+        ids: Array,
+        attention_mask: Array,
+    ) -> Array:
         if self.embeddings is None:
             raise NotFittedError("Model has not been fitted yet.")
-        vectors = np.take(self.embeddings, ids, axis=0)
+        vectors = jnp.take(self.embeddings, ids, axis=0)
         vectors = (vectors.T * attention_mask).T
-        vectors_sum = np.sum(vectors, axis=0)
-        n_nonmask = np.sum(attention_mask)
+        vectors_sum = jnp.sum(vectors, axis=0)
+        n_nonmask = jnp.sum(attention_mask)
         return vectors_sum / n_nonmask
 
     def encode_batch(
@@ -51,19 +63,13 @@ class Model:
     ):
         if self.embeddings is None:
             raise NotFittedError("Model has not been fitted yet.")
-        if isinstance(ids, list):
+        if isinstance(ids, list) or isinstance(attention_mask, list):
             res = []
             for id, att in zip(ids, attention_mask):
                 res.append(self.encode(id, att))
-            return np.stack(res)
+            return jnp.stack(res)
         else:
-            vectors = np.take(self.embeddings, ids, axis=0)
-            masked = np.transpose(
-                (np.transpose(vectors, (2, 0, 1)) * attention_mask), (1, 2, 0)
-            )
-            summed = np.sum(masked, axis=1)
-            n_nonmask = np.sum(masked, axis=1)
-            return summed / n_nonmask
+            return self.apply(self.embeddings, ids, attention_mask)
 
     def pipe(self, docs: Iterable[Document]) -> Iterable[Document]:
         @reusable
@@ -94,10 +100,12 @@ class Model:
             raise NotFittedError(
                 "Can't save model if it hasn't been fitted yet."
             )
-        return safetensors.numpy.save({"embeddings": self.embeddings})
+        return safetensors.flax.save(
+            {"embeddings": jnp.array(self.embeddings)}
+        )
 
     def from_bytes(self, data: bytes):
-        tensor_dict = safetensors.numpy.load(data)
+        tensor_dict = safetensors.flax.load(data)
         self.embeddings = tensor_dict["embeddings"]
         return self
 

@@ -1,7 +1,10 @@
 from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union
 
+import jax
 import numpy as np
+
+Array = Union[jax.Array, np.ndarray]
 
 
 @dataclass
@@ -16,7 +19,7 @@ class Token:
         return self.doc.text[start:end]
 
     @property
-    def vector(self) -> np.ndarray:
+    def vector(self) -> Array:
         if self.doc.vectors is None:
             raise TypeError("No vectors have been assigned yet.")
         return self.doc.vectors[self.index]
@@ -37,7 +40,7 @@ class Document:
     text: str
     tokens: list[Token]
     ids: np.ndarray
-    vectors: Optional[np.ndarray] = None
+    vectors: Optional[Array] = None
 
     def __repr__(self) -> str:
         text_start = self.text[:50]

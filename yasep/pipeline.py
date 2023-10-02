@@ -1,8 +1,9 @@
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Optional, Union
+from typing import Iterable, Optional, Union
 
+import jax
 import numpy as np
 from confection import Config, registry
 from huggingface_hub import HfApi, snapshot_download
@@ -12,7 +13,8 @@ from yasep.exceptions import NotFittedError
 from yasep.hub import DEFAULT_README
 from yasep.models.model import Model
 from yasep.tokenizers import Tokenizer
-from yasep.utils import reusable
+
+Array = Union[jax.Array, np.ndarray]
 
 
 @dataclass
@@ -42,7 +44,7 @@ class Pipeline:
         self.model.train_from_iterable(docs)
         return self
 
-    def encode(self, text: str) -> np.ndarray:
+    def encode(self, text: str) -> Array:
         if not isinstance(text, str):
             raise TypeError(
                 "text is not type str. Did you mean to call encode_batch?"
@@ -54,7 +56,7 @@ class Pipeline:
         texts: list[str],
         padding: bool = False,
         padding_length: Optional[int] = None,
-    ) -> np.ndarray:
+    ) -> Array:
         tokenized = self.tokenizer.encode_batch(
             texts, padding=padding, padding_length=padding_length
         )
