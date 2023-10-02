@@ -1,7 +1,8 @@
 from abc import ABC
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union
 
 import catalogue
+import numpy as np
 from confection import Config, registry
 from tokenizers import Tokenizer as HFTokenizer
 from tokenizers.models import BPE, Unigram, WordLevel, WordPiece
@@ -39,6 +40,9 @@ def bytes_to_tok(data: bytes) -> HFTokenizer:
     return HFTokenizer.from_str(data.decode("utf-8"))
 
 
+ArraySequence = Union[np.ndarray, list[np.ndarray]]
+
+
 class Tokenizer(ABC):
     def __call__(self, text: str) -> Document:
         encoding = self.model.encode(text)
@@ -51,6 +55,38 @@ class Tokenizer(ABC):
     def train_from_iterable(self, X: Iterable[str], y=None):
         self.model.train_from_iterator(X, self.trainer)
         return self
+
+    def encode(self, text: str) -> np.ndarray:
+        encoding = self.model.encode(text)
+        return encoding.ids
+
+    def encode_batch(
+        self,
+        texts: list[str],
+        padding: bool = False,
+        padding_length: Optional[int] = None,
+    ) -> tuple[ArraySequence, ArraySequence]:
+        if padding:
+            self.model.enable_padding(
+                pad_id=self.model.token_to_id("[PAD]"),
+                pad_token="[PAD]",
+                length=padding_length,
+            )
+            if padding_length is not None:
+                self.model.enable_truncation(max_length=padding_length)
+        encodings = self.model.encode_batch(texts)
+        ids = []
+        attention = []
+        for encoding in encodings:
+            ids.append(encoding.ids)
+            attention.append(encoding.attention_mask)
+        if padding:
+            self.model.no_padding()
+            ids = np.stack(ids)
+            attention = np.stack(attention)
+            if padding_length is not None:
+                self.model.no_truncation()
+        return ids, attention
 
     @property
     def config(self) -> Config:
@@ -144,7 +180,7 @@ class WordPieceTokenizer(Tokenizer):
         self.trainer = WordPieceTrainer(
             vocab_size=vocab_size,
             min_frequency=min_frequency,
-            special_tokens=["[UNK]"],
+            special_tokens=["[UNK]", "[PAD]"],
         )
 
 
@@ -195,7 +231,7 @@ class WordLevelTokenizer(Tokenizer):
         self.trainer = WordLevelTrainer(
             vocab_size=vocab_size,
             min_frequency=min_frequency,
-            special_tokens=["[UNK]"],
+            special_tokens=["[UNK]", "[PAD]"],
         )
 
 
@@ -244,7 +280,9 @@ class UnigramTokenizer(Tokenizer):
             lowercase=lowercase,
         )
         self.trainer = UnigramTrainer(
-            vocab_size=vocab_size, max_piece_length=max_piece_length
+            vocab_size=vocab_size,
+            max_piece_length=max_piece_length,
+            special_tokens=["[PAD]"],
         )
 
 
@@ -300,5 +338,5 @@ class BpeTokenizer(Tokenizer):
             vocab_size=vocab_size,
             max_token_length=max_token_length,
             min_frequency=min_frequency,
-            special_tokens=["[UNK]"],
+            special_tokens=["[UNK]", "[PAD]"],
         )

@@ -1,7 +1,7 @@
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Union
+from typing import Callable, Iterable, Optional, Union
 
 import numpy as np
 from confection import Config, registry
@@ -42,21 +42,23 @@ class Pipeline:
         self.model.train_from_iterable(docs)
         return self
 
-    def encode(self, text: str, agg: Callable = np.nanmean) -> np.ndarray:
+    def encode(self, text: str) -> np.ndarray:
         if not isinstance(text, str):
             raise TypeError(
                 "text is not type str. Did you mean to call encode_batch?"
             )
-        doc = self.__call__(text)
-        return agg(doc.vectors, axis=0)
+        return self.model.encode(*self.tokenizer.encode(text))
 
     def encode_batch(
-        self, texts: Iterable[str], agg: Callable = np.nanmean
+        self,
+        texts: list[str],
+        padding: bool = False,
+        padding_length: Optional[int] = None,
     ) -> np.ndarray:
-        embeddings = []
-        for text in texts:
-            embeddings.append(self.encode(text, agg))
-        return np.stack(embeddings)
+        tokenized = self.tokenizer.encode_batch(
+            texts, padding=padding, padding_length=padding_length
+        )
+        return self.model.encode_batch(*tokenized)
 
     @property
     def config(self) -> Config:

@@ -1,10 +1,8 @@
-import tempfile
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional, Union
 
 import numpy as np
 import safetensors.numpy
 from confection import Config, registry
-from gensim.models import KeyedVectors
 
 from yasep.doc import Document
 from yasep.exceptions import NotFittedError
@@ -14,6 +12,9 @@ from yasep.utils import reusable
 @registry.models.register("static_model.v1")
 def make_static():
     return Model()
+
+
+ArraySequence = Union[np.ndarray, list[np.ndarray]]
 
 
 class Model:
@@ -29,6 +30,40 @@ class Model:
         vectors = np.take(self.embeddings, doc.ids, axis=0)
         doc.vectors = vectors
         return doc
+
+    def encode(
+        self,
+        ids: np.ndarray,
+        attention_mask: np.ndarray,
+    ) -> np.ndarray:
+        if self.embeddings is None:
+            raise NotFittedError("Model has not been fitted yet.")
+        vectors = np.take(self.embeddings, ids, axis=0)
+        vectors = (vectors.T * attention_mask).T
+        vectors_sum = np.sum(vectors, axis=0)
+        n_nonmask = np.sum(attention_mask)
+        return vectors_sum / n_nonmask
+
+    def encode_batch(
+        self,
+        ids: ArraySequence,
+        attention_mask: ArraySequence,
+    ):
+        if self.embeddings is None:
+            raise NotFittedError("Model has not been fitted yet.")
+        if isinstance(ids, list):
+            res = []
+            for id, att in zip(ids, attention_mask):
+                res.append(self.encode(id, att))
+            return np.stack(res)
+        else:
+            vectors = np.take(self.embeddings, ids, axis=0)
+            masked = np.transpose(
+                (np.transpose(vectors, (2, 0, 1)) * attention_mask), (1, 2, 0)
+            )
+            summed = np.sum(masked, axis=1)
+            n_nonmask = np.sum(masked, axis=1)
+            return summed / n_nonmask
 
     def pipe(self, docs: Iterable[Document]) -> Iterable[Document]:
         @reusable
