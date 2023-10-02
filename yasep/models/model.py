@@ -113,5 +113,5 @@ class Model:
     def fitted(self):
         return self.embeddings is not None
 
-    def train_from_iterable(self, texts: Iterable[Document]) -> "Model":
+    def pretrain(self, texts: Iterable[Document]) -> "Model":
         return self

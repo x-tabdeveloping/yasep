@@ -118,7 +118,7 @@ class SkipGram(Model):
             shrink_windows=shrink_windows,
         )
 
-    def train_from_iterable(self, docs: Iterable[Document]) -> "SkipGram":
+    def pretrain(self, docs: Iterable[Document]) -> "SkipGram":
         ids = docs_to_ids(docs)
         self.model.build_vocab(ids)
         self.model.train(

@@ -52,7 +52,7 @@ class Tokenizer(ABC):
             doc.tokens.append(token)
         return doc
 
-    def train_from_iterable(self, X: Iterable[str], y=None):
+    def pretrain(self, X: Iterable[str], y=None):
         self.model.train_from_iterator(X, self.trainer)
         return self
 

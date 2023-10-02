@@ -97,7 +97,7 @@ class GloVe(Model):
             memory=memory,
         )
 
-    def train_from_iterable(self, docs: Iterable[Document]) -> "GloVe":
+    def pretrain(self, docs: Iterable[Document]) -> "GloVe":
         ids = docs_to_ids(docs)
         self.model.train(ids)
         self.embeddings = kv_to_array(self.model.wv)

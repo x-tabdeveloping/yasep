@@ -38,10 +38,10 @@ class Pipeline:
         docs = self.tokenizer.pipe(texts)
         return self.model.pipe(docs)
 
-    def train_from_iterator(self, corpus: Iterable[str]) -> "Pipeline":
-        self.tokenizer.train_from_iterable(corpus)
+    def pretrain(self, corpus: Iterable[str]) -> "Pipeline":
+        self.tokenizer.pretrain(corpus)
         docs = self.tokenizer.pipe(corpus)
-        self.model.train_from_iterable(docs)
+        self.model.pretrain(docs)
         return self
 
     def encode(self, text: str) -> Array:
