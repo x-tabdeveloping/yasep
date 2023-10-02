@@ -10,6 +10,7 @@ from huggingface_hub import HfApi, snapshot_download
 
 from yasep.doc import Document
 from yasep.exceptions import NotFittedError
+from yasep.finetune.head import Head
 from yasep.hub import DEFAULT_README
 from yasep.models.model import Model
 from yasep.tokenizers import Tokenizer
@@ -21,6 +22,7 @@ Array = Union[jax.Array, np.ndarray]
 class Pipeline:
     tokenizer: Tokenizer
     model: Model
+    head: Optional[Head] = None
 
     @property
     def fitted(self) -> bool:
